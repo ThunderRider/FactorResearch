@@ -1,0 +1,18 @@
+dataset,level,path,start,end,n_rows,n_tickers,built_at,builder,git_sha,snapshot,hash,note
+# ==============================================================================
+# 数据集清单。每写入任何级别的数据，追加一行。
+# 列定义见 data/README.md §3。
+# 以 # 开头的行会被加载器跳过（用于分节注释）。
+# ==============================================================================
+# ---- 待登记：从旧项目复用的缓存（2026-01-01 ~ 2026-05-18）----
+# cn_stock_30m_volume,curated,data/curated/cn_stock_30m_post_volume_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补 n_rows/n_tickers；源 394MB
+# cn_stock_30m_close,curated,data/curated/cn_stock_30m_post_close_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 212MB
+# cn_stock_30m_open,curated,data/curated/cn_stock_30m_post_open_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 212MB
+# cn_stock_30m_high,curated,data/curated/cn_stock_30m_post_high_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 211MB
+# cn_stock_30m_low,curated,data/curated/cn_stock_30m_post_low_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 208MB
+# cn_mac_5m_volume,curated,data/curated/cn_mac_5m_post_volume_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 310MB
+# cn_index_30m_close,curated,data/curated/cn_index_30m_post_close_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 340KB
+# cn_stock_close_daily,curated,data/curated/cn_stock_close_20200101_20260513.parquet,2020-01-01,2026-05-13,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260513,,待补；源 50MB
+# cn_stock_market_cap,curated,data/curated/cn_stock_market_cap_20200101_20260513.parquet,2020-01-01,2026-05-13,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260513,,待补；源 44MB ⭐ 补 amihud 正交化缺口
+# cn_mac_pit_universe,curated,data/curated/cn_mac_pit_universe_20200101_20260518.parquet,2020-01-01,2026-05-18,,,2026-11-20T17:00:00+08:00,legacy-symlink,legacy,v1-20260518,,待补；源 179KB ⭐ PIT 成分股
+cn_index_pit_universe,curated,curated/cn_index_pit_universe_20200102_20260518.parquet,2020-01-02,2026-05-18,4099230,4742,2026-11-23T16:36:15+08:00,rqdatac.index_components (wpqc config license),,,sha256:eab0921a2083d9d0,"mac=300+500, min=1000+2000; fails=0"

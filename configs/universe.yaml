@@ -1,0 +1,55 @@
+# 股票池定义（universe）
+# 设计原则：池的定义必须 PIT —— 用"当日成分"，不用"最新成分"
+
+pools:
+  # ---- 中大盘池：沪深300 + 中证500 ----
+  mac:
+    label: 大盘池
+    members:
+      - source: index_components
+        index: 000300.XSHG
+      - source: index_components
+        index: 399905.XSHE
+    filters:
+      exclude_st: true
+      min_listing_days: 365
+      min_adt20: 5.0e7          # 20 日均成交额门槛（元）；注意必须用 T-1 口径
+    # 基准（超额收益的分母）
+    benchmark: 000300.XSHG
+
+  # ---- 小盘池：中证1000 + 中证2000 ----
+  min:
+    label: 小盘池
+    members:
+      - source: index_components
+        index: 000852.XSHG
+      - source: index_components
+        index: 932000.INDX
+    filters:
+      exclude_st: true
+      min_listing_days: 365
+      min_adt20: 5.0e7
+    benchmark: 399303.XSHE     # 国证2000（旧项目口径）
+
+  # ---- 全市场（做因子截面时的默认池）----
+  all:
+    label: 全A
+    members:
+      - source: all_instruments
+        type: CS
+        market: cn
+    filters:
+      exclude_st: true
+      exclude_bse: true        # 北交所流动性特殊，默认排除
+      min_listing_days: 365
+      min_adt20: 1.0e7
+    benchmark: 000852.XSHG
+
+# 交易约束（回测层用，不要在因子层偷偷过滤）
+tradability:
+  # 这些是"无法按目标价成交"的条件，属于执行约束而非因子
+  exclude_limit_up_down: true
+  exclude_suspended: true
+  exclude_zero_volume: true
+  # 单票权重上限
+  max_weight: 0.19

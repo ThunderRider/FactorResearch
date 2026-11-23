@@ -1,0 +1,470 @@
+# 因子注册表
+# ----------------------------------------------------------------
+# 每个因子一条。字段说明见文件末尾的 schema 注释。
+# 状态机：draft → candidate → active → retired；任一环节可 rejected。
+# 详细说明见 registry/README.md；总表见 docs/03_knowledge/factor_zoo.md
+#
+# ⚠️ 本文件是"定义与状态"的真相源，不是"结果"的存放处。
+#    结果在 artifacts/results/<run_id>/，出处写在 evidence 字段里。
+
+meta:
+  version: 3
+  updated_at: "2026-11-20"
+  source: "初始化：从 my_quantproject/wpqc 等项目迁移 + 清理"
+
+factors:
+
+  # ================================================================
+  # A. 选股因子（active）
+  # ================================================================
+
+  - id: vol_ratio
+    label: 同时刻量比
+    family: 量价
+    status: active
+    direction: negative          # 值越小越好
+    definition: "v1430 / rolling_mean(v1430, 20, min_periods=10)"
+    formula_code: "features.price_volume.vol_ratio"
+    params:
+      window: 20
+      min_periods: 10
+      bar: "14:30"
+    pit_fields: [v1430]
+    labels: [ret_1445_next_1115]
+    independent: true
+    notes: |
+      唯一在对流动性/波动正交后仍保留 96% IC 的因子。
+      只用一根 bar（14:00-14:30）的量，换 13:30 或累计量的敏感性未做。
+    evidence:
+      min_pool:
+        mean_ic: -0.0478
+        t_naive: -14.59
+        t_newey_west: -11.43
+        neff_days: 424
+        block_bootstrap_ci: [-0.056, -0.040]
+        decile_q10_minus_q1_bp_per_day: -38.5
+        ic_by_year: {2023: -0.052, 2024: -0.056, 2025: -0.048, 2026: -0.036}
+      mac_pool:
+        mean_ic: -0.0173
+        t_newey_west: -4.35
+        neff_days: 782
+      orthogonalization:
+        controls: [log_amt20, vol_20d]
+        ic_retention: 0.96
+        net_ann_delta_pp: -0.55
+      permutation:
+        delta_sharpe: 0.348
+        noise_control_delta_sharpe: 0.669
+        note: "低于噪声对照 → 与 amihud 同时存在时边际贡献被吸收"
+    source_run: "wpqc-2026-11-P1-5/P1-6"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/notion_02_factors.md"
+    retire_if:
+      - "连续 2 个季度 IC 绝对值 < 0.024（全样本一半）"
+      - "正交后 IC 保留率 < 0.40"
+      - "14:30 与 13:30 bar 的敏感性检验显示符号翻转"
+    status_changed: "2026-11-20"
+    status_reason: "迁移时按旧项目 V7 结论定为 active"
+
+  - id: amihud_lag
+    label: 非流动性（冷门，T-1）
+    family: 流动性
+    status: active
+    direction: positive
+    definition: "rolling_mean(|daily_ret| / day_amt, 20, min_periods=10).shift(1)"
+    formula_code: "features.price_volume.amihud"
+    params:
+      window: 20
+      min_periods: 10
+      lag: 1                       # ⚠️ 必须 lag，见 pit_policy.md
+    pit_fields: [day_amt, c1500]
+    labels: [ret_1445_next_1115]
+    independent: false             # ⚠️ 关键：正交后 IC 符号翻转
+    notes: |
+      不是独立的"非流动性溢价"。对外必须表述为
+      "流动性 / 波动 / 超跌 综合暴露"，不能说成 Amihud (2002) 的溢价。
+    evidence:
+      min_pool:
+        mean_ic: 0.0327
+        t_newey_west: 5.48
+        neff_days: 617
+        block_bootstrap_ci: [0.019, 0.042]
+      mac_pool:
+        mean_ic: 0.0076
+        t_newey_west: 1.46
+        note: "大盘池不显著"
+      orthogonalization:
+        controls: [log_amt20]
+        raw_ic: 0.0103
+        resid_ic: -0.0315
+        sign_flip: true
+        net_ann_raw_pct: 9.59
+        net_ann_resid_pct: 5.38
+        net_ann_resid_full_pct: 0.52
+        full_controls: [log_amt20, vol_20d, ret_20d]
+      permutation:
+        delta_sharpe: 0.981
+        noise_control_delta_sharpe: 0.669
+        net_information_delta_sharpe: 0.31
+    source_run: "wpqc-2026-11-P1-5/P1-6"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/P0_P1_RESULTS.md"
+    retire_if:
+      - "对真市值正交后 IC 保留率 < 0.40"
+      - "连续 2 个季度 IC < 0.016"
+    status_changed: "2026-11-20"
+    status_reason: "迁移（active，但 independent=false 必须公开标注）"
+
+  - id: ret_20d
+    label: 20 日反转
+    family: 反转
+    status: watch
+    direction: negative
+    definition: "c1430 / c1430.shift(20) - 1"
+    formula_code: "features.price_volume.ret_nd"
+    params: {window: 20, bar: "14:30"}
+    pit_fields: [c1430]
+    labels: [ret_1445_next_1115]
+    independent: partial
+    notes: |
+      2026 年 IC 腰斩（-0.052 → -0.029），已触发退役评估但尚未退役。
+      现在不要动它 —— 动它就是又一次样本内优化。
+    evidence:
+      min_pool:
+        mean_ic: -0.0520
+        t_newey_west: -6.82
+        neff_days: 518
+        block_bootstrap_ci: [-0.067, -0.038]
+        ic_by_year: {2023: -0.049, 2024: -0.051, 2025: -0.072, 2026: -0.029}
+      correlation:
+        with_ret_5d: 0.43
+        with_vol_ratio: 0.34
+      permutation:
+        delta_sharpe: 0.609
+        noise_control_delta_sharpe: 0.669
+        note: "低于噪声对照 → 边际贡献可疑"
+    source_run: "wpqc-2026-11-P1-5"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/notion_02_factors.md"
+    retire_if:
+      - "连续 2 个季度 IC 绝对值 < 0.026（全样本一半）"
+      - "正交后 IC 保留率 < 0.40"
+    status_changed: "2026-11-20"
+    status_reason: "2026 年衰减过半，降级为 watch"
+
+  # ================================================================
+  # B. 仓位 / 择时层（不是选股因子）
+  # ================================================================
+
+  - id: tier_index_slope
+    label: 指数成交量斜率档位
+    family: 择时
+    layer: position
+    status: active
+    direction: positive
+    definition: |
+      指数 30 分钟成交量的线性回归斜率；> 0 → 档位 1.0，否则 → 1/16。
+      大盘池用 000300.XSHG 的 102 根 bar；小盘池用 399303.XSHE 的 72 根 bar。
+    formula_code: "features.index_signal.tier"
+    params:
+      mac: {index: "000300.XSHG", window_bars: 102}
+      min: {index: "399303.XSHE", window_bars: 72}
+      multiplier: [1.0, 0.0625]
+    pit_fields: [index_30m_volume]
+    independent: true
+    notes: |
+      全套里唯一通过安慰剂检验的层（第 98.8 分位）。
+      它是避险型信号：价值在"极端时少亏"，不在"平时多赚"。
+      窗口 102/72 是唯一没留敏感性记录的参数（旧项目 P2-12 未做）。
+    evidence:
+      placebo:
+        n_permutations: 2000
+        real_net_ann_pct: 9.59
+        real_sharpe: 0.71
+        placebo_median_net_ann_pct: -3.05
+        placebo_5_95_pct: [-10.81, 6.08]
+        percentile_rank: 98.8
+        sharpe_percentile_rank: 97.6
+      annual_contribution_pp:
+        2023: -2.44
+        2024: 27.16
+        2025: -7.35
+        2026: 33.73
+        full_sample: 58.37
+      by_pool_2026:
+        mac: {high_slope_bp: -8.3, low_slope_bp: 4.6, verdict: 反向}
+        min: {high_slope_bp: 83.4, low_slope_bp: -12.3, verdict: 极准}
+    source_run: "wpqc-2026-11-placebo"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/EXPERIMENTS_V1_V6.md"
+    retire_if:
+      - "窗口敏感性检验显示符号一致率 < 0.85"
+      - "小盘池高档日的单位敞口日收益跌破盈亏平衡线（20bp）连续 2 个季度"
+    status_changed: "2026-11-20"
+    status_reason: "迁移（旧项目唯一通过安慰剂的层）"
+
+  - id: disp_iqr5_120
+    label: 离散度决策器（择线）
+    family: 择时
+    layer: selection_switch
+    status: rejected
+    direction: none
+    definition: |
+      disp = 全池当日 ret_5d 的截面 IQR(Q75-Q25)
+      pct  = disp 过去 120 个交易日的扩展分位
+      use_v1 = pct < 0.5
+    formula_code: "features.decision.disp"
+    params: {window: 120, threshold: 0.5, dispersion: "iqr(ret_5d)"}
+    pit_fields: [ret_5d]
+    independent: false
+    reject_reason: |
+      PBO = 56.3%（等于抛硬币）；禁运 120 日后样本外 Sharpe 从 0.97 掉到 0.49；
+      2026 年全年 +0.85pp 超额全部来自单日 2026-03-24（+4.51pp），剔除后 -3.50pp；
+      204 次触发的超额中位数 -0.21bp（多数小亏 + 偶尔大赢）。
+      实盘默认应使用纯三因子选股，决策器降级为研究记录。
+    evidence:
+      pbo: 0.563
+      placebo_percentile_full_sample: 87.8
+      placebo_percentile_oos: 99.1
+      placebo_percentile_oos_after_embargo: null
+      purge_test:
+        split_2025_06_30: {embargo_0: 0.969, embargo_120: 0.492}
+      trigger_quality:
+        n_triggers: 204
+        mean_excess_bp: 6.00
+        median_excess_bp: -0.21
+      y2026:
+        net_ann_vs_v3_pp: 0.85
+        excluding_2026_03_24_pp: -3.50
+    source_run: "wpqc-2026-11-P1-8/PBO"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/OVERFITTING_TESTS_V6.md"
+    status_changed: "2026-11-20"
+    status_reason: "迁移（旧项目 V7 已默认关闭）"
+
+  # ================================================================
+  # C. 已证伪 / 降级
+  # ================================================================
+
+  - id: resi
+    label: 去趋势残差波动
+    family: 波动
+    status: rejected
+    direction: negative
+    definition: |
+      lnK = ln((high + low + close) / 3)；对 40 根 30 分钟 bar 做线性回归；
+      取残差的标准差（再取 40 根滚动）。
+    formula_code: "features.bar_stats.resi"
+    params: {window_bars: 40, min_periods: 40, bar: "14:30"}
+    pit_fields: [high, low, close]
+    independent: false
+    reject_reason: |
+      与 20 日波动率相关 0.72 —— 本质是"买高波动"的马甲。
+      小盘池选股超额 -0.033%/日（t = -0.64，不显著）；
+      V1 组合层毛年化 21.5% / 净 +0.9% / MDD -38.7% / 前 10 天贡献 97% 毛收益。
+    evidence:
+      # ⚠️ 以下 5 项是迁移时从旧项目搬来的原始口径，**其中两项已被 2026-11-23 的重测推翻**，
+      #    见下方 corrections 与 measured_2026_11；保留原文是为了可追溯（只追加不改历史）。
+      mean_ic: -0.058
+      correlation_with_vol_20d: 0.72
+      v1_portfolio: {gross_ann_pct: 21.5, net_ann_pct: 0.9, mdd_pct: -38.7, top10_contribution: 0.97}
+      small_pool_excess_bp_per_day: -0.033
+      small_pool_excess_t: -0.64
+
+    corrections:
+      - date: "2026-11-23"
+        source_run: "20261123-resi-min-retest"
+        claim: "与 20 日波动率相关 0.72"
+        measured: "0.59~0.61（日度截面秩相关的均值，真 PIT 小盘池）"
+        verdict: "不成立（相关性被高估，但方向上仍是同类暴露）"
+      - date: "2026-11-23"
+        source_run: "20261123-resi-min-retest"
+        claim: "小盘池选股超额 -0.033%/日（t=-0.64，不显著）"
+        measured: "高 resi top-4 = -51.5bp/日（t=-4.01）；低 resi top-4 = +4.1bp（池均 +7.6bp）"
+        verdict: "不成立（高度显著；且 resi 只能当'排除牌'，低 resi 方向选股跑输池均）"
+      - date: "2026-11-23"
+        source_run: "20261123-resi-screen-control"
+        claim: "本质是'买高波动'的马甲"
+        measured: "剔除 resi 前30% 与剔除 vol_20d 前30% 在 V8 选股上效果几乎相同（N=50：+14.05 vs +13.82bp/日；OOS +9.06 vs +8.69）"
+        verdict: "成立（结论保留；理由由'IC 是马甲'改为'筛选层面被 vol_20d 完全替代'）"
+      - date: "2026-11-23"
+        source_run: "20261123-resi-min-retest"
+        claim: "V1『按 RESI 取前 10』"
+        measured: "resi 的 IC 为负（-0.066），高 resi 恰是最差的一档"
+        verdict: "疑似方向用反（推断，未核 strategy01.py 的排序方向）"
+
+    measured_2026_11:
+      pool: "PIT 中证1000+2000（真实逐日成分）"
+      sample: "2020-01-02~2026-05-18（判决窗口 2023-09-11 起；OOS 2025-07-03 起）"
+      ic_1115: {full: -0.0567, since_2023q3: -0.0659, is: -0.0645, oos: -0.0677}
+      ic_0930: {full: -0.1057, since_2023q3: -0.1279, oos: -0.1106}
+      rank_corr_with_vol_20d: 0.59
+      ic_retention_after_vol_tercile: 0.76
+      decile_profile_1115_bp:
+        q1_to_q9: "+4.5 ~ +13.7"
+        q10: -12.4
+        pool_mean: 7.6
+      role: "只能做排除（剔除高 resi 档）；不能做多头信号"
+
+    source_run: "wpqc-2026-11"
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/EXPERIMENTS_V1_V6.md"
+    status_changed: "2026-11-20"
+    status_reason: "迁移"
+
+  - id: coef_std
+    label: 量价相关稳定性
+    family: 量价
+    status: watch
+    direction: none
+    definition: "rolling_corr(delta ln(price), delta ln(volume), 40 bars) 的滚动标准差"
+    formula_code: "features.bar_stats.coef_std"
+    params: {window_bars: 40, bar: "14:30"}
+    pit_fields: [close, volume]
+    independent: unknown
+    notes: |
+      实测 IC -0.009 ≈ 0。旧代码里叫 rolling_coef_std。
+      消融测试（从 V1 打分里删掉它）从未做过 —— 这是最该补的一项。
+    evidence:
+      mean_ic: -0.009
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/notion_02_factors.md"
+    retire_if:
+      - "消融测试显示删除后组合收益无变化（ΔSharpe < 0.10）"
+    status_changed: "2026-11-20"
+    status_reason: "迁移（IC≈0，待消融判决）"
+
+  - id: max20
+    label: 彩票因子（20 日最大单日涨幅取负）
+    family: 波动
+    status: rejected
+    direction: negative
+    definition: "-max(daily_return, window=20)"
+    pit_fields: [c1500]
+    independent: false
+    reject_reason: |
+      与 20 日波动率相关 0.874，是波动率的马甲。
+      过滤/加权/替换共 9 种用法全部变差（基准 25.5% → 14.8%~23.1%）。
+    evidence:
+      mean_ic: -0.0513
+      ic_by_year: {2023: -0.058, 2024: -0.048, 2025: -0.051, 2026: -0.053}
+      icir: -0.27
+      correlation_with_vol_20d: 0.874
+      portfolio_variants: {baseline_pct: 25.5, worst_pct: 14.8, best_pct: 23.1, n_variants: 9}
+    source_doc: "docs/03_knowledge/falsified.md"
+    status_changed: "2026-11-20"
+    status_reason: "迁移"
+
+  - id: gap
+    label: 隔夜跳空
+    family: 日内结构
+    status: rejected
+    direction: none
+    definition: "o1000 / c1500.shift(1) - 1"
+    pit_fields: [o1000, c1500]
+    independent: false
+    reject_reason: |
+      涨停污染源。加可交易过滤后单独排序年化 -81.5%；
+      不加过滤时是 +14,807% 的幻觉（买在涨停板上）。
+      保留为可交易过滤的输入（|day_ret| < 0.095），不作为打分项。
+    evidence:
+      with_filter_ann_pct: -81.5
+      without_filter_ann_pct: 14807
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/EXPERIMENTS_V1_V6.md"
+    status_changed: "2026-11-20"
+    status_reason: "迁移"
+
+  # ================================================================
+  # D. 待评估（draft）
+  # ================================================================
+
+  - id: updown_5d
+    label: 5 日涨跌量比（放量上涨 vs 放量下跌）
+    family: 量价
+    status: draft
+    direction: unknown
+    definition: "log((sum(volume where dclose>0, 5)+1) / (sum(volume where dclose<0, 5)+1))"
+    formula_code: "features.price_volume.updown_5d"
+    params: {window: 5, min_periods: 3}
+    pit_fields: [close, volume]
+    independent: unknown
+    notes: "旧项目 eval_wpqc_factors.py 里定义过但从未单独评估过。"
+    evidence: {}
+    status_changed: "2026-11-20"
+    status_reason: "迁移（未评估）"
+
+  - id: asp_slope
+    label: 成交额线性回归斜率（ASP）
+    family: 量价
+    status: draft
+    direction: positive
+    definition: "LINEARREG_SLOPE(total_turnover, N)，N in [5, 120]"
+    params: {period_range: [5, 120], signal_lag: 1}
+    pit_fields: [total_turnover]
+    independent: unknown
+    notes: |
+      来自 hzbplus。只有单股择时验证，没有截面 IC / 组合层 / 审计。
+      每只股票一次参数寻优 → N ≈ 58 万次，DSR 会被打到接近 0。
+      要升级必须先截面化：从"个股趋势翻转"改成"横截面排序"（这是两个不同的假设）。
+    evidence: {}
+    status_changed: "2026-11-20"
+    status_reason: "迁移（单股层面有验证，组合层空白）"
+
+  - id: cls_score
+    label: 财联社电报热度（时间衰减加权提及次数）
+    family: 事件
+    status: draft
+    direction: positive
+    definition: "sum(0.5 ** (age_in_trading_days / halflife))，halflife = 5"
+    params: {lookback: 20, min_hist: 2, halflife: 5, as_of: "14:30"}
+    pit_fields: [cls_news_time]
+    independent: unknown
+    notes: |
+      作为"票池构造"是合格的（PIT 校验 8/8，含截断不变性）。
+      作为"因子"从未验证过有效性 —— 原文档明说"score 只是排序便利"。
+      ⚠️ 已知：套用 V8 选股到该票池无效（因子要尾部，该池平均分位 0.76~0.82）。
+    evidence: {}
+    source_doc: "docs/04_legacy/wpqc_maqiangchou/cls_pool_README.md"
+    status_changed: "2026-11-20"
+    status_reason: "迁移（票池合格，因子未验证）"
+
+  # ================================================================
+  # E. 控制变量（不是选股因子）
+  # ================================================================
+
+  - id: vol_20d
+    label: 20 日波动率
+    family: 波动
+    status: control
+    direction: none
+    definition: "rolling_std(daily_ret, 20, min_periods=10).shift(1)"
+    pit_fields: [c1500]
+    notes: "⚠️ 含当日 15:00，必须 shift(1)。主要用作正交化的控制变量。"
+    status_changed: "2026-11-20"
+    status_reason: "迁移"
+
+  - id: log_amt20
+    label: log(20 日均成交额)
+    family: 规模代理
+    status: control
+    direction: none
+    definition: "log(rolling_mean(day_amt, 20, min_periods=10).shift(1))"
+    pit_fields: [day_amt]
+    notes: "旧项目缺市值表，用它做规模/流动性代理。有真市值后应替换或并列使用。"
+    status_changed: "2026-11-20"
+    status_reason: "迁移"
+
+# ================================================================
+# 字段 schema
+# ================================================================
+# id            唯一标识，必须与 features 面板里的列名完全一致
+# label         中文名
+# family        量价 / 反转 / 波动 / 流动性 / 日内结构 / 事件 / 择时 / 规模代理
+# layer         可选：selection（选股）/ position（仓位）/ selection_switch（择线）
+# status        draft | candidate | active | watch | retired | rejected | input | control
+# direction     positive | negative | none（方向：值越大越好 / 越小越好 / 无关）
+# definition    精确定义，可直接翻译成代码
+# formula_code  实现位置（模块.函数）
+# params        参数（改参数 = 一次新试验，必须记账）
+# pit_fields    用到的字段，必须都出现在 field_pit.yaml 里
+# labels        适用的标签（见 labels.yaml）
+# independent   true | false | partial | unknown（正交化后的判定）
+# evidence      证据（数字 + 口径），结果文件的路径写进 source_run
+# reject_reason status=rejected 时必填
+# retire_if     status=active 时必填（退役条件）
+# source_run    artifacts/results/ 下的 run_id
+# source_doc    对应知识文档（相对路径）
+# status_changed / status_reason  状态变更记录

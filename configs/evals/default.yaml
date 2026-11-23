@@ -1,0 +1,68 @@
+# 因子评估默认口径
+# 所有阈值都可以改，但改了必须记进 trials_log.csv（因为改阈值 = 一次新试验）
+
+labels:
+  # 默认标签：与旧项目"尾盘选股、次日卖出"同构
+  primary: ret_1445_next_1115
+  # 报告里必须同时给这三个分解段（拆分是诊断的关键）
+  decompose: [ret_tail, ret_overnight, ret_morning]
+  # 辅助标签（日频多周期用）
+  extra: [ret_1d, ret_5d, ret_20d]
+
+ic:
+  method: spearman           # RankIC；不用 Pearson，A 股截面极值多
+  min_names_per_day: 30      # 当天截面股票数少于此值不算 IC
+  # 重叠窗口导致日度 IC 自相关，naive t 会高估，必须同时报 Newey-West t
+  newey_west_lag: 20
+  report: [mean_ic, std_ic, icir, t_naive, t_nw, pos_ratio, n_days]
+
+decile:
+  n_quantiles: 10
+  min_names_per_day: 30
+  # 分层必须在池内做（选股发生在池内排序）
+  group_by_pool: true
+  # 必须同时报中位数，避免被极端值带偏
+  report: [mean, median, count]
+
+independence:
+  # 正交化的控制变量（缺一不可，缺了就说明"没做正交"）
+  controls:
+    - log_amt20        # 流动性/规模代理
+    - log_mktcap       # 真市值（若有）
+    - vol_20d          # 波动
+    - ret_20d          # 反转
+  # 判定线：正交后 IC 保留率
+  keep_ratio_pass: 0.60
+  # 因子间相关警戒线
+  corr_warn: 0.70
+
+importance:
+  # 置换重要性（Permutation Importance）
+  n_perm: 100
+  # 判定线：打乱该因子后 Sharpe 的下降
+  delta_sharpe_pass: 0.10
+  # 必做对照：把一槽换成纯噪声，用它的代价校准所有 PI 数字
+  noise_control: true
+
+robustness:
+  # 脆弱性曲线：剔除最好的 k 天
+  fragility_k: [0, 1, 2, 3, 5, 8, 10, 20]
+  # 判定线：去掉最好 5 天后仍 > 0
+  fragility_pass_k: 5
+  # 块自举
+  block_bootstrap:
+    block: 20
+    n: 3000
+  # 分年必须报（单年驱动 = regime 依赖）
+  by_year: true
+
+portfolio:
+  # 盈亏平衡线：每单位敞口的日收益必须超过它（不是看年化收益）
+  breakeven_daily_per_unit_exposure: 0.002
+  # 选股
+  n_picks_per_pool: 4
+  score_norm: zscore          # zscore | rank
+  z_clip: 3.0
+  # 换手与容量
+  report_turnover: true
+  capacity_participation: [0.05, 0.10, 0.20]

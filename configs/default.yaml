@@ -1,0 +1,45 @@
+# 全局默认配置（不含凭证；凭证走 .env）
+# 加载顺序：环境变量 > .env > 本文件
+# 代码入口：factorlab.config.load()
+
+project:
+  name: FactorResearch
+  timezone: Asia/Shanghai
+  # 所有研究的"决策时点"。日频研究可整体平移到 15:00 之后。
+  as_of_time: "14:30"
+
+paths:
+  # 数据根目录；置空则用仓库内 ./data。大数据建议指到独立盘。
+  data_root: ""          # 例：/mnt/d/quant_data/factor
+  cache_root: ""         # 例：/mnt/d/quant_cache
+  artifacts: ./artifacts
+  logs: ./logs
+  registry: ./registry
+
+market:
+  country: cn
+  calendar: cn_a_share
+  trading_days_per_year: 252
+  # A 股交易时段（分钟级数据的 bar 时间戳约定为 bar 的**结束时刻**）
+  sessions:
+    - ["09:30", "11:30"]
+    - ["13:00", "15:00"]
+  # 停牌 / 涨跌停的判定阈值
+  limit_pct:
+    main_board: 0.10
+    star_market: 0.20      # 科创板 688/689
+    gem: 0.20              # 创业板 300/301
+    bse: 0.30              # 北交所
+  limit_tolerance: 0.095   # 统一粗判阈值：|涨幅| >= 该值 视为接近涨跌停
+
+costs:
+  # 单边成本（佣金 + 印花税 + 滑点合计），所有回测默认口径
+  one_way: 0.0010
+  # 敏感性网格，报告里必须至少给这三档
+  sensitivity: [0.0010, 0.0015, 0.0020]
+
+reproducibility:
+  # 任何研究开始前必须固定
+  seed: 20261120
+  # 数据快照 tag（对应 data/MANIFEST.csv 的 snapshot 列）
+  snapshot: null

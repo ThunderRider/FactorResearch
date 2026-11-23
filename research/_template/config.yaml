@@ -1,0 +1,73 @@
+# 本研究的参数（不含凭证；凭证走仓库根的 .env）
+# 改动任何一个值都算一次新试验 → 必须记进 registry/trials_log.csv
+
+meta:
+  run_id: "YYYYMMDD-<slug>"        # 与 artifacts/results/ 目录名一致
+  owner: ""
+  started_at: "YYYY-MM-DD"
+
+# ---- 数据 ----
+data:
+  # 用哪个面板（由 factorlab.data.build + 特征/标签构建产出）
+  panel: "data/panels/panel_mac-min_20200101_20261130_v1.parquet"
+  start: "2020-01-01"
+  end: "2026-11-30"
+  # 股票池（configs/universe.yaml 里定义的 key）
+  pools: [mac, min]
+  # 只做主板时设为 true（创业/科创的涨跌停是 20%，9.5% 阈值会误伤）
+  main_board_only: false
+
+# ---- 待检验的因子 ----
+factors:
+  # 每个因子的方向用符号表达：+1 越大越好，-1 越小越好
+  - id: vol_ratio
+    direction: -1
+    params: {window: 20, bar: "14:30"}
+  # - id: ret_20d
+  #   direction: -1
+  #   params: {window: 20}
+
+# ---- 标签 ----
+labels:
+  primary: ret_1445_next_1115
+  decompose: [ret_tail, ret_overnight, ret_morning]
+
+# ---- 评估 ----
+eval:
+  min_names_per_day: 30
+  nw_lag: 20
+  n_quantiles: 10
+  # 正交化的控制变量（缺一个就等于"没做正交"）
+  orth_controls: [log_amt20, vol_20d, ret_20d]
+  # 置换重要性
+  n_perm: 100
+  include_noise_control: true      # ⚠️ 不许关
+
+# ---- 组合 ----
+portfolio:
+  n_picks_per_pool: 4
+  budget: 0.96
+  max_weight: 0.19
+  z_clip: 3.0
+  cost_one_way: 0.0010
+  cost_sensitivity: [0.0010, 0.0015, 0.0020]
+
+# ---- 审计 ----
+audit:
+  # 前视体检：截断不变性的抽查日（含长假后 + 极端日 + 预热期刚结束 + 随机）
+  truncation_dates: ["2020-10-09", "2024-02-05", "2021-08-13"]
+  do_dsr: true
+  n_trials_for_dsr: null           # null = 自动从 registry/trials_log.csv 累计
+  do_pbo: false                    # 参数冻结的策略可设为 false，但要在 conclusion 里说明
+  # ⚠️ 没有切分日与禁运长度的「样本外」不是证据，是措辞。
+  #    切分日应早于你最后一次调参的日期；组内建议留最后 20~30% 作为 OOS。
+  split_date: null                 # 例："2025-07-01"
+  embargo_days: 120                # 必须 >= 最大特征窗（分位窗口 120 天 → 120）
+  fragility_k: [0, 1, 2, 3, 5, 8, 10, 20]
+
+# ---- 输出的期望结论（开题时写，写完再对比）----
+expectation:
+  nw_t_min: 3.0
+  ic_retention_min: 0.60
+  delta_sharpe_min: 0.10
+  per_unit_daily_min: 0.0020

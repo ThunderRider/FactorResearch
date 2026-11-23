@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------- 凭证 / 本地配置
+# 真实凭证永不入库；用 .env 或 configs/local.yaml（均被忽略）
+.env
+configs/local.yaml
+configs/local.yml
+*.pem
+
+# ---------------------------------------------------------------- Python 噪声
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------- 数据层：内容不入库，只保留 README / MANIFEST
+data/raw/**
+data/curated/**
+data/features/**
+data/labels/**
+data/panels/**
+!data/**/.gitkeep
+!data/README.md
+!data/MANIFEST.csv
+!data/**/README.md
+
+# ---------------------------------------------------------------- 产出层
+artifacts/cache/**
+artifacts/results/**
+artifacts/reports/**
+!artifacts/**/.gitkeep
+!artifacts/README.md
+
+logs/*
+!logs/.gitkeep
+
+# ---------------------------------------------------------------- 大文件兜底（GitHub 单文件 100MB 限制）
+*.parquet
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.feather
+*.zip
+*.tar.gz
+# 但允许极小的 fixture（tests 用），显式白名单
+!tests/fixtures/**
+
+# ---------------------------------------------------------------- OS / 编辑器
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.Zone.Identifier
+.vscode/settings.json
+.idea/
+
+# ---------------------------------------------------------------- 研究产物（可由 run.py 重算）
+research/*/result/**
+!research/*/result/.gitkeep

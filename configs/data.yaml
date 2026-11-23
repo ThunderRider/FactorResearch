@@ -1,0 +1,69 @@
+# 数据层配置：数据集、字段、频率、复权、缓存命名
+# 与 registry/field_pit.yaml 配套：这里定义"取什么"，那里定义"什么时候可知"
+
+rqdata:
+  # 凭证从 .env 读，不写在这里
+  adjust_type: post        # 后复权；与前复权（pre）混用会让历史收益失真
+  frequency_default: "30m"
+
+datasets:
+  # ---- 个股 30 分钟 bar（主力数据集）----
+  30m_stock:
+    dataset: cn_stock_30m
+    freq: "30m"
+    fields: [open, high, low, close, volume, total_turnover]
+    # 宽表落盘：date × ticker（一个字段一个文件）
+    layout: wide
+    storage: parquet
+    name_pattern: "cn_stock_30m_post_{field}_{start}_{end}.parquet"
+    note: "对齐旧项目 wpqc_factor/data_rq 命名，可直接复用其缓存"
+
+  # ---- 个股 5 分钟 bar（用于精确执行价 / 尾盘口径）----
+  5m_stock:
+    dataset: cn_stock_5m
+    freq: "5m"
+    fields: [open, high, low, close, volume, total_turnover]
+    layout: wide
+    storage: parquet
+    name_pattern: "cn_stock_5m_post_{field}_{start}_{end}.parquet"
+
+  # ---- 个股日线 ----
+  daily_stock:
+    dataset: cn_stock_daily
+    freq: "1d"
+    fields: [open, high, low, close, volume, total_turnover, turnover_rate, market_cap]
+    layout: wide
+    storage: parquet
+    name_pattern: "cn_stock_{field}_{start}_{end}.parquet"
+
+  # ---- 指数 ----
+  index:
+    dataset: cn_index
+    freq: "30m"
+    fields: [open, high, low, close, volume]
+    ids: [000300.XSHG, 000852.XSHG, 399905.XSHE, 399303.XSHE, 932000.INDX]
+    layout: wide
+    storage: parquet
+    name_pattern: "cn_index_30m_post_{field}_{start}_{end}.parquet"
+
+  # ---- 股票池（PIT 成分快照）----
+  universe_pit:
+    dataset: cn_index_components
+    freq: "1d"
+    layout: long
+    storage: parquet
+    name_pattern: "cn_mac_pit_universe_{start}_{end}.parquet"
+    note: "每日成分股快照；禁止用最新成分回测历史（幸存者偏差）"
+
+quality:
+  # 落盘前的最小校验；不过关的数据集必须写进 MANIFEST 的 note 列
+  min_stocks_per_day: 100
+  max_missing_ratio: 0.30
+  require_positive_volume: true
+  # 复权一致性：后复权序列里 close 不应出现 <= 0
+  forbid_nonpositive_price: true
+
+cache:
+  # 中间对象（大 panel）默认放 artifacts/cache，可被 .env 的 FACTORLAB_CACHE_ROOT 覆盖
+  keep_days: 30
+  format: parquet          # 大对象优先 parquet，pickle 仅用于不可序列化为表的对象

@@ -1,0 +1,25 @@
+# 核心（跑通 factorlab / research 模板的最小集合）
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0
+PyYAML>=6.0
+python-dotenv>=1.0
+scipy>=1.11
+statsmodels>=0.14
+tqdm>=4.66
+
+# 取数（有 RQData 授权时安装）
+# rqdatac
+# rqalpha-plus
+
+# 回测 / 技术指标（可选）
+# vectorbt
+# TA-Lib
+
+# 因子检验（可选，自研因子分析优先用 src/factorlab/eval）
+# alphalens-reloaded
+
+# 开发
+pytest>=8.0
+ruff>=0.5
+black>=24.0

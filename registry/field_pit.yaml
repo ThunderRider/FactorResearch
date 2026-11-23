@@ -1,0 +1,346 @@
+# 字段 PIT 表（Point-In-Time）
+# ----------------------------------------------------------------
+# 每个字段登记：它是什么、最后可知时点、是否需要 shift、来源。
+# 代码侧：factorlab.audit.lookahead 加载本表做自动审计。
+#
+# ⚠️ 本表是 PIT 的**唯一真相源**。代码与表不一致时，以表为准，改代码。
+# ⚠️ 加字段不进本表 = 该字段来路不明 = 审计判失败。
+
+meta:
+  version: 1
+  updated_at: "2026-11-20"
+  as_of_time: "14:30"
+  as_of_rule: "字段的最后可知时点必须 <= as_of(T) 才能直接使用"
+  decision: "<= as_of 直接使用；> as_of 必须 shift(1) 或显式构造 as_of 版本"
+
+# ================================================================
+# A. 30 分钟 bar 快照（截至 14:30 时点可知）
+# ================================================================
+# 命名：<字段首字母><HHMM>，HHMM 是该 bar 的**结束时刻**
+# 这些字段全部 <= as_of，无需 shift
+fields:
+
+  c1430:
+    label: 14:30 bar 收盘价
+    known_at: "T 14:30"
+    needs_shift: false
+    source: "cn_stock_30m[close] @ 14:30"
+    note: "= as_of，含边界。这是最主要的因子输入价。"
+
+  c1400:
+    label: 14:00 bar 收盘价
+    known_at: "T 14:00"
+    needs_shift: false
+    source: "cn_stock_30m[close] @ 14:00"
+
+  c1330:
+    label: 13:30 bar 收盘价
+    known_at: "T 13:30"
+    needs_shift: false
+    source: "cn_stock_30m[close] @ 13:30"
+
+  c1130:
+    label: 11:30 bar 收盘价
+    known_at: "T 11:30"
+    needs_shift: false
+    source: "cn_stock_30m[close] @ 11:30"
+
+  c1100:
+    label: 11:00 bar 收盘价
+    known_at: "T 11:00"
+    needs_shift: false
+    source: "cn_stock_30m[close] @ 11:00"
+
+  o1000:
+    label: 10:00 bar 开盘价
+    known_at: "T 10:00"
+    needs_shift: false
+    source: "cn_stock_30m[open] @ 10:00"
+    note: "A 股第一个 30 分钟 bar 是 09:30-10:00，所以 10:00 的 open = 当日开盘价"
+
+  v1430:
+    label: 14:00-14:30 bar 成交量
+    known_at: "T 14:30"
+    needs_shift: false
+    source: "cn_stock_30m[volume] @ 14:30"
+
+  v1400:
+    label: 13:30-14:00 bar 成交量
+    known_at: "T 14:00"
+    needs_shift: false
+    source: "cn_stock_30m[volume] @ 14:00"
+
+  a1430:
+    label: 14:00-14:30 bar 成交额
+    known_at: "T 14:30"
+    needs_shift: false
+    source: "cn_stock_30m[total_turnover] @ 14:30"
+
+  day_high_upto_1430:
+    label: 截至 14:30 的当日最高价
+    known_at: "T 14:30"
+    needs_shift: false
+    source: "cn_stock_30m[high] 累 max，仅取 <= 14:30 的 bar"
+    note: "⚠️ 不是全天最高。必须显式构造 as_of 版本。"
+
+  day_low_upto_1430:
+    label: 截至 14:30 的当日最低价
+    known_at: "T 14:30"
+    needs_shift: false
+    source: "cn_stock_30m[low] 累 min，仅取 <= 14:30 的 bar"
+    note: "⚠️ 不是全天最低"
+
+  # ---- 原始 bar 字段（单位说明见 data/README.md §2.1）----
+  # 时间戳是 bar 的结束时刻；取值时点 = 该 bar 结束
+  open:
+    label: bar 开盘价
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[open]"
+    note: "按需取某一根 bar（如 10:00 的 open = 当日开盘价）"
+
+  high:
+    label: bar 最高价
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[high]"
+
+  low:
+    label: bar 最低价
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[low]"
+
+  close:
+    label: bar 收盘价
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[close]"
+
+  volume:
+    label: bar 成交量（股）
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[volume]"
+
+  total_turnover:
+    label: bar 成交额（元）
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_stock_30m/5m[total_turnover]"
+
+  # ---- 由 c1430 派生的价格类因子字段（as_of 时点即可得）----
+  ret_5d:
+    label: 5 日反转（c1430 / c1430.shift(5) - 1）
+    known_at: "T 14:30"
+    needs_shift: false
+    derived_from: [c1430]
+    note: "决策器的离散度输入；也用作短周期反转因子"
+
+  ret_20d:
+    label: 20 日反转（c1430 / c1430.shift(20) - 1）
+    known_at: "T 14:30"
+    needs_shift: false
+    derived_from: [c1430]
+    note: "⚠️ 2026 年 IC 腰斩，见 factor_zoo.md"
+
+# ================================================================
+# B. 需要 shift 的字段（最容易翻车的地方）
+# ================================================================
+
+  c1500:
+    label: 15:00 bar 收盘价（当日收盘）
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_30m[close] @ 15:00"
+    note: |
+      经典陷阱。用于：
+      - 停牌/涨跌停判定（当日收盘后才确定）
+      - 日收益计算（daily_ret = c1500 / c1500.shift(1) - 1）
+      若因子用 daily_ret 再做 20 日滚动，则整体需要 shift(1)。
+
+  day_amt:
+    label: 当日全天成交额
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_30m[total_turnover] 当日求和"
+    note: "⚠️ 盘中是不完整的。旧项目 amt20 前视事故的根源就是这个字段。"
+
+  day_vol:
+    label: 当日全天成交量
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_30m[volume] 当日求和"
+
+  day_high:
+    label: 当日最高价
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_30m[high] 当日 max"
+    note: "若因子需要「收盘位置」类指标，用 day_high_upto_1430 而非本字段"
+
+  day_low:
+    label: 当日最低价
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_30m[low] 当日 min"
+
+  amt20:
+    label: 20 日均成交额（含今日）
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "day_amt.rolling(20, min_periods=10).mean()"
+    note: |
+      ⚠️⚠️ 最高危字段。旧项目 V6 用 amt20 > 5e7 做流动性门槛，
+      而决策在 14:45，虚高 1.66pp、6.02% 选股改变。
+      正确写法：rolling(20).mean().shift(1)
+      注意 shift 加在 rolling **之后**。
+
+  amt20_lag:
+    label: 20 日均成交额（T-1 口径）✅ 推荐
+    known_at: "T-1 15:00"
+    needs_shift: false
+    derived_from: "amt20 with shift(1) applied"
+    source: "day_amt.rolling(20, min_periods=10).mean().shift(1)"
+    note: "因子与过滤都应该用这个，不要用 amt20"
+
+  amihud:
+    label: 20 日均 Amihud 非流动性（含今日）
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "rolling_mean(|daily_ret| / day_amt, 20, min_periods=10)"
+    note: "旧项目曾在此翻车（修过一次），见 amihud_lag"
+
+  amihud_lag:
+    label: 20 日均 Amihud（T-1 口径）✅ 推荐
+    known_at: "T-1 15:00"
+    needs_shift: false
+    derived_from: "amihud with shift(1) applied"
+    note: "registry/factors.yaml 的 amihud_lag 用的是这个"
+
+  vol_20d:
+    label: 20 日日收益标准差（含今日）
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "daily_ret.rolling(20, min_periods=10).std()"
+    note: "⚠️ 常被漏掉。作为正交化控制变量时也必须 shift。"
+
+  turnover_rate:
+    label: 当日换手率
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_daily[turnover_rate]"
+
+  mktcap:
+    label: 市值（收盘价 × 总股本）
+    known_at: "T 15:00"
+    needs_shift: true
+    shift: 1
+    source: "cn_stock_daily[market_cap]"
+    note: |
+      ⚠️ 旧项目工作区缺此表，用 log_amt20 做规模代理。
+      这是 amihud 的"非流动性溢价"叙事最可能被尽调击穿的一条。
+
+# ================================================================
+# C. 状态类字段（每日变动，必须用当日快照）
+# ================================================================
+
+  st_flag:
+    label: 当日是否 ST
+    known_at: "T 开盘前（公告）"
+    needs_shift: false
+    source: "cn_st_stock_days"
+    note: "ST 的涨跌停幅度是 5%，影响可交易性判定"
+
+  suspended:
+    label: 当日是否停牌
+    known_at: "T 开盘前"
+    needs_shift: false
+    source: "cn_stocks[suspended_days]"
+
+  limit_up_down:
+    label: 当日是否触及涨跌停
+    known_at: "T 收盘后（但盘中可实时判断）"
+    needs_shift: true
+    shift: 1
+    source: "由 close / prev_close 与板块阈值比较"
+    note: |
+      ⚠️ 盘中只在 bar 的时点可判断"此刻是否已触及"。
+      用于**可交易过滤**时应判断「决策时刻是否已接近」，
+      而不是用「当日是否最终触及」（那是未来信息）。
+
+  index_components:
+    label: 指数成分股（当日）
+    known_at: "T 开盘前（指数公司公告）"
+    needs_shift: false
+    source: "cn_mac_pit_universe（每日快照）"
+    note: |
+      ⚠️⚠️ 严禁用最新成分回测历史（幸存者偏差）。
+      必须 rqdatac.index_components(code, date=d) 逐日取。
+
+# ================================================================
+# D. 指数 / 宏观
+# ================================================================
+
+  index_30m_volume:
+    label: 指数 30 分钟成交量
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_index_30m[volume]"
+    note: |
+      档位（tier）用它的斜率。
+      ⚠️ 窗口单位是 **bar 数**，不是天数：102 根 ≈ 13 天，72 根 ≈ 9 天。
+      用自然日做横轴会让小盘池 23% 的信号翻转（旧项目实测）。
+
+  index_30m_close:
+    label: 指数 30 分钟收盘价
+    known_at: "bar 结束时刻"
+    needs_shift: false
+    source: "cn_index_30m[close]"
+
+# ================================================================
+# E. 事件类（外部数据）
+# ================================================================
+
+  cls_news_time:
+    label: 财联社电报时间戳
+    known_at: "电报发布时刻"
+    needs_shift: false
+    source: "CLS 历史数据"
+    note: |
+      PIT 判定：`time <= as_of(D)` 才能进入 D 日票池。
+      旧项目 cls_pool 用「上一交易日 14:30」而非「昨天 14:30」切窗，
+      因为周末/长假仍有电报 —— 自然日规则会漏掉 1.0% 的提及。
+      PIT 校验：截断不变性 8/8 通过。
+
+# ================================================================
+# 审计用：已知的历史事故（供 lookahead 脚本做回归测试）
+# ================================================================
+
+known_incidents:
+  - field: amt20
+    incident: "旧项目 V6 用含当日 15:00 的 amt20 做流动性门槛，决策在 14:45"
+    impact_pp: -1.66
+    picks_changed_pct: 6.02
+    fixed_in: "wpqc strategy07.py（AMT_LAG = 1）"
+    regression_test: "tests/test_pit.py::test_amt20_is_lagged"
+
+  - field: amihud
+    incident: "旧项目更早的版本用含当日的 amihud，决策在 14:45"
+    impact_pp: "+2.5pp（改成 T-1 后反而更好，因为它是冷门溢价，不需要当天信息）"
+    fixed_in: "wpqc strategy04.py（V3）"
+
+  - field: index_30m_volume_slope
+    incident: "用自然日做横轴（Excel SLOPE 做法）"
+    impact_pp: "V3 净 9.55% → -1.37%"
+    detail: "min 池 23%（181/800 天）的信号符号翻转"
+    fixed_in: "改用「第 N 根 bar」做 x 轴"

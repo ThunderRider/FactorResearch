@@ -1,0 +1,59 @@
+# 小盘池宽度研究 · 参数
+# 改任何一项 = 一次新试验，必须进 trials_log.csv
+
+run_id: "20261123-min-breadth"
+sample:
+  start: "2020-01-02"
+  end: "2026-05-18"
+  # 判决只用 min 池完整口径之后的样本（中证2000 于 2023-08 发布）
+  judge_from: "2023-09-11"
+  split: "2024-12-31"          # 样本内 / 样本外切分
+  embargo_days: 120            # 禁运（交易日）
+
+pools:
+  mac: ["000300.XSHG", "399905.XSHE"]
+  min: ["000852.XSHG", "932000.INDX"]
+  universe_path: "data/curated/cn_index_pit_universe_20200102_20260518.parquet"
+
+factors:                        # 与 V8 完全一致，本次不改
+  vol_ratio: {window: 20, min_periods: 10, bar: "14:30"}
+  amihud: {window: 20, min_periods: 10, lag: 1}
+  ret_20d: {window: 20, bar: "14:30"}
+z_clip: 3.0
+
+select:
+  n_mac: 2
+  n_min: [4, 20, 50]            # 4 = 现行 V8 基线
+
+weights:
+  budget: 0.96
+  mode: equal_all               # 主口径：0.96 × 档位 / (2+N)
+  robustness_mode: fixed_33_67  # 稳健性：mac 腿 1/3、min 腿 2/3
+
+tier:
+  index: "399303.XSHE"
+  window_bars: 72
+  bar: "14:30"
+  high: 1.0
+  low: 0.01
+  lag: 1
+
+filter:
+  limit_tolerance: 0.095
+  min_amt20: 5.0e+7
+  amt_lag: 1
+
+labels:
+  primary: "1115"
+  also: ["0930", "1330"]
+
+cost:
+  side: 0.001                   # 单边 0.1%
+  model: "side × (今日敞口 + 昨日敞口)"
+
+judge:                          # 与 idea.md §4 一一对应，跑之前写死
+  F1_delta_bp: 2.0
+  F2_monotone: true
+  F3_excess_over_ew_positive: true
+  F4_vol_matched: true
+  F5_fragility_k: 5

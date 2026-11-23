@@ -1,0 +1,130 @@
+# 标签（目标收益）口径表
+# ----------------------------------------------------------------
+# "标签"是因子要预测的东西。它决定了整个研究的因果结构，所以口径必须唯一、
+# 必须可复算、必须在报告里写明。
+#
+# 硬规则：
+#   1. 收益一律存**小数**（0.0123 = +1.23%）
+#   2. 标签行的 date = 决策日 T；value 用到的行情必须 **严格晚于** as_of(T)
+#   3. 最后一个交易日（及末尾若干日）的长周期标签必然是 NaN —— 不要用别的值填
+#   4. 任何新标签先在 research/ 里试，通过后再登记到这里
+
+meta:
+  version: 1
+  updated_at: "2026-11-20"
+  as_of_time: "14:30"
+  timezone: "Asia/Shanghai"
+
+labels:
+
+  # ================================================================
+  # 主标签：尾盘买入，次日卖出（与旧项目同构）
+  # ================================================================
+
+  - id: ret_1445_next_1115
+    label: T 日 14:45 → T+1 日 11:15
+    primary: true
+    horizon: overnight_plus_morning      # 跨夜 + 次日早盘
+    definition: |
+      entry = (c1430 + c1500) / 2          # ≈ 14:45（30m bar 中点近似）
+      exit  = (next c1100 + next c1130) / 2 # ≈ 次日 11:15
+      value = exit / entry - 1
+    formula_code: "labels.intraday.ret_1445_next_1115"
+    requires: [c1430, c1500, c1100, c1130]
+    pit_note: "全部字段在 T 日 14:30 时未知，但作为**标签**这是正确的（标签就是未来）"
+    usage: "旧项目 V1-V8 的默认口径；所有 IC 与回测的主口径"
+    caveat: |
+      (c1430 + c1500)/2 是**中点近似**，不是真实可成交价。
+      必须做执行假设敏感性：改用「决策后第一根 bar 开盘」「该时段 VWAP」「加 1 根 bar 延迟」。
+      判定线：入场假设变化导致下修 < 1pp。
+
+  - id: ret_1445_next_1330
+    label: T 日 14:45 → T+1 日 13:30
+    primary: false
+    horizon: overnight_plus_morning_plus_noon
+    definition: |
+      entry = (c1430 + c1500) / 2
+      exit  = next c1330
+      value = exit / entry - 1
+    formula_code: "labels.intraday.ret_1445_next_1330"
+    requires: [c1430, c1500, c1330]
+    usage: "旧项目的最优出场口径（+6.1pp 增量，但 t=1.65，5bp 滑点即归零）"
+    caveat: |
+      ⚠️ 增量窗口的 naive t = 1.28（V3 口径），DSR(N=9) = 0.62，卖出腿 +5bp 后归零。
+      报告时必须同时给出「卖出腿 +5bp」版本，不能只报最优口径。
+
+  - id: ret_1445_next_0930
+    label: T 日 14:45 → T+1 日 9:30 开盘
+    primary: false
+    definition: "value = next o1000 / ((c1430 + c1500)/2) - 1"
+    usage: "对照用。旧项目实测 -14.39%（隔夜跳空是最大杀手）"
+
+  # ================================================================
+  # 三段分解：强制项（乘积严格等于主标签）
+  # ================================================================
+
+  - id: ret_tail
+    label: 当日尾盘（14:45 → 15:00）
+    primary: false
+    decompose_of: ret_1445_next_1115
+    definition: "value = c1500 / ((c1430 + c1500)/2) - 1"
+    usage: "诊断：因子是否只在尾盘段有 IC（=赚的是尾盘资金意图）"
+
+  - id: ret_overnight
+    label: 隔夜（15:00 → 次日 9:30 开盘）
+    primary: false
+    decompose_of: ret_1445_next_1115
+    definition: "value = next o1000 / c1500 - 1"
+    usage: |
+      诊断：这是旧项目最重要的一个分解。
+      V1（高波动票）隔夜段 -13.9bp（净拖累）；V3（低波动冷门票）+6.7bp（贡献）。
+      "V3 比 V1 好"的真正原因不是选得更猛，而是隔夜不再亏。
+
+  - id: ret_morning
+    label: 次日早盘（9:30 → 11:15）
+    primary: false
+    decompose_of: ret_1445_next_1115
+    definition: "value = ((next c1100 + next c1130)/2) / next o1000 - 1"
+    usage: "诊断"
+
+  # ================================================================
+  # 日频多周期标签（做日频因子研究时用）
+  # ================================================================
+
+  - id: ret_1d
+    label: 次日收益（收盘到收盘）
+    primary: false
+    definition: |
+      ⚠️ 这里是一个**约定选择**：日频研究里 T 日决策在收盘后，
+      因此标签用 next c1500 / c1500 - 1。
+      若把 as_of 平移到 T 日 15:00，则本标签在 T 日收盘后是"未来一日"，正确。
+    formula_code: "labels.daily.ret_nd"
+    requires: [c1500]
+    usage: "日频因子的基准标签"
+
+  - id: ret_5d
+    label: 5 日收益
+    primary: false
+    definition: "next5 c1500 / c1500 - 1"
+    formula_code: "labels.daily.ret_nd"
+    requires: [c1500]
+
+  - id: ret_20d
+    label: 20 日收益
+    primary: false
+    definition: "next20 c1500 / c1500 - 1"
+    formula_code: "labels.daily.ret_nd"
+    requires: [c1500]
+
+# ================================================================
+# 标签构造的三条纪律
+# ================================================================
+# 1. 分解必须严格
+#    ret_1445_next_1115 = (1+ret_tail)(1+ret_overnight)(1+ret_morning) - 1
+#    tests/test_smoke.py 里有这个恒等式的断言。
+#
+# 2. 不得用未来信息构造"因子"，也不得用历史信息构造"标签"
+#    因子与标签必须物理隔离（不同文件、不同函数），避免手滑。
+#
+# 3. NaN 的语义必须是"不可度量"，不是"0"
+#    最后一个交易日的 next 标签是 NaN —— 这是正确的，不要 fillna。

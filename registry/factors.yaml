@@ -21,7 +21,7 @@ factors:
   - id: vol_ratio
     label: 同时刻量比
     family: 量价
-    status: active
+    status: watch
     direction: negative          # 值越小越好
     definition: "v1430 / rolling_mean(v1430, 20, min_periods=10)"
     formula_code: "features.price_volume.vol_ratio"
@@ -62,13 +62,25 @@ factors:
       - "连续 2 个季度 IC 绝对值 < 0.024（全样本一半）"
       - "正交后 IC 保留率 < 0.40"
       - "14:30 与 13:30 bar 的敏感性检验显示符号翻转"
-    status_changed: "2026-11-20"
-    status_reason: "迁移时按旧项目 V7 结论定为 active"
+    pit_2026_11:                 # 真 PIT 池（中证1000+2000 逐日成分）重测
+      pool_ic: {ic: -0.0659, t_newey_west: -8.95, window: "2023-09-11~2026-05-18"}
+      oos_ic: {ic: -0.0677, t_newey_west: -6.85, window: "2025-07-03~2026-05-18"}
+      mac_pool_ic: -0.0454
+      unit_exposure_bp_per_day: {n4: 20.98, n50: 29.63}   # 高档日、1115、min 腿
+      v8_portfolio_net_ann_pct: {1115: 0.04, 1330: 1.13}
+      source_run: "20261123-v8-pit-real / 20261123-min-breadth"
+    status_changed: "2026-11-24"
+    status_reason: |
+      真 PIT 池重测：IC 仍在（-0.0659，t=-8.95；OOS -0.0677，无衰减），门 3 通过。
+      但门 5 在所有已测构造下都不过：N=4 单位敞口 20.98bp/日、N=50 29.63bp/日，
+      扣 0.1%/边后 V8 组合净年化只有 +0.04%（11:15）/ +1.13%（13:30）。
+      原 active 依据（legacy 小盘池 IC -0.048）来自"最新成分"口径，含幸存者偏差。
+      降为 watch：因子本身没坏，坏的是目前能变现的构造。
 
   - id: amihud_lag
     label: 非流动性（冷门，T-1）
     family: 流动性
-    status: active
+    status: watch
     direction: positive
     definition: "rolling_mean(|daily_ret| / day_amt, 20, min_periods=10).shift(1)"
     formula_code: "features.price_volume.amihud"
@@ -110,8 +122,17 @@ factors:
     retire_if:
       - "对真市值正交后 IC 保留率 < 0.40"
       - "连续 2 个季度 IC < 0.016"
-    status_changed: "2026-11-20"
-    status_reason: "迁移（active，但 independent=false 必须公开标注）"
+    pit_2026_11:
+      pool_ic: {ic: 0.0108, t_newey_west: 2.13, window: "2023-09-11~2026-05-18"}
+      full_ic: {ic: 0.0097, t_newey_west: 2.84}
+      gate3_verdict: "fail（|t| < 3.0）"
+      source_run: "20261123-v8-pit-real"
+    status_changed: "2026-11-24"
+    status_reason: |
+      真 PIT 池重测：IC 只有 +0.0108（t=2.13），未过门 3 的 |t| >= 3；
+      而门 4 早已判 independent=false（对 log 成交额正交后 IC 符号翻转）。
+      legacy 的 +0.033 同样来自最新成分口径。
+      降为 watch：它有信息，但既不够显著、也不独立。
 
   - id: ret_20d
     label: 20 日反转
@@ -146,8 +167,16 @@ factors:
     retire_if:
       - "连续 2 个季度 IC 绝对值 < 0.026（全样本一半）"
       - "正交后 IC 保留率 < 0.40"
-    status_changed: "2026-11-20"
-    status_reason: "2026 年衰减过半，降级为 watch"
+    pit_2026_11:
+      pool_ic: {ic: -0.0652, t_newey_west: -9.79, window: "2023-09-11~2026-05-18"}
+      oos_ic: {ic: -0.0511, t_newey_west: -4.69, window: "2025-07-03~2026-05-18"}
+      retire_if_check: "未触发（|IC| > 0.026）"
+      source_run: "20261123-v8-pit-real / 20261123-min-breadth-ic"
+    status_changed: "2026-11-24"
+    status_reason: |
+      维持 watch。真 PIT 池重测：IC -0.0652（t=-9.79）/ OOS -0.0511（t=-4.69），
+      比 legacy 的 -0.052 还略强，未触发 retire_if，因子仍然有效。
+      降不了级也升不上去：它和 vol_ratio 一样拿不到盈亏线以上（V8 PIT 净年化 +0.04%）。
 
   # ================================================================
   # B. 仓位 / 择时层（不是选股因子）

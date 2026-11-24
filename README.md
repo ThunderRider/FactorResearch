@@ -160,6 +160,7 @@ FactorResearch/
 | 立刻开跑 | [`docs/00_quickstart.md`](docs/00_quickstart.md) |
 | 知道数据怎么放、字段什么意思 | [`data/README.md`](data/README.md) + [`registry/field_pit.yaml`](registry/field_pit.yaml) |
 | 做一次合规的研究 | [`docs/02_methods/research_workflow.md`](docs/02_methods/research_workflow.md) |
+| 复现别人的策略/复用本仓库代码 | [`docs/02_methods/reproduction_fidelity.md`](docs/02_methods/reproduction_fidelity.md) |
 | 避免重复踩坑 | [`docs/03_knowledge/lessons_learned.md`](docs/03_knowledge/lessons_learned.md) |
 | 查某个因子是否已测过 | [`docs/03_knowledge/factor_zoo.md`](docs/03_knowledge/factor_zoo.md) / [`registry/factors.yaml`](registry/factors.yaml) |
 | 别再浪费时间的死路 | [`docs/03_knowledge/falsified.md`](docs/03_knowledge/falsified.md) |

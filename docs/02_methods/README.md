@@ -10,6 +10,7 @@
 | [`portfolio_eval.md`](portfolio_eval.md) | 门 5 | 单位敞口日收益 / 脆弱性曲线 / 块自举 / 分年 / 超额 / 容量 / 执行假设 |
 | [`overfitting_controls.md`](overfitting_controls.md) | 门 6 | N 记账 / DSR / PBO / 禁运 / 置换重要性 / 安慰剂 / FDR |
 | [`lookahead_audit.md`](lookahead_audit.md) | 门 6 | 前视体检的四道检查 + 五类手工检查 + 常见前视模式 |
+| [`reproduction_fidelity.md`](reproduction_fidelity.md) | 门 3–6 的**前置** | ★ 复现口径差异 11 条 + 复用前检查清单（池成分/复权/进场价/滑点） |
 
 ---
 

@@ -515,9 +515,25 @@ factors:
       orth_retention: 0.638
       net_delta_sharpe_pi: 0.230
       portfolio_verdict: fail
-    source_run: "20261126-gtja191-first-batch"
+      portfolio_tier:                 # 2026-11-26 加斜率档位后的组合层重测
+        n4: {unit_bp: 34.64, unit_t: 3.18, net_ann_pct: 7.81,
+             oos_unit_bp: 46.99, oos_net_ann_pct: 13.97}
+        n50: {unit_bp: 30.01, unit_t: 2.95, net_ann_pct: 5.20,
+              oos_unit_bp: 22.23, oos_net_ann_pct: 0.92}
+        fragility_k5_net_pct: {n4_all: -1.92, n4_oos: -4.56, n50_all: -3.97}
+        top10_share_of_total: {n4: 1.95, n50_oos: 12.71}
+        by_year_n4: {2023: -8.09, 2024: 14.90, 2025: 7.21, 2026: 6.95}
+        verdict: "唯一在两个宽度、两个窗口都过 20bp 线的构造；但门 5 脆弱性 k=5 归零 -> 不可上线"
+        source_run: "20261126-tier-compare"
+    source_run: "20261126-gtja191-first-batch / 20261126-tier-compare"
     status_changed: "2026-11-26"
-    status_reason: "第一批筛选：因子层与正交化通过，但组合层失败，暂为 watch"
+    status_reason: |
+      加斜率档位后重测组合层：N=4 单位敞口 34.64bp(t=3.18)、净 +7.81%；
+      OOS 46.99bp、净 +13.97%；N=50 30.01bp、+5.20%。
+      是全场唯一两个宽度都站在 20bp 盈亏线以上的构造，**强于 V8 三因子**（21.79bp / +0.04%）。
+      但**门 5 脆弱性失败**：剔最好 5 天后 N=4 由 +7.81% -> -1.92%、OOS 由 +13.97% -> -4.56%；
+      N=50 的 OOS 前 10 天占累计收益 12.71 倍。
+      维持 watch：不是因子无效，是收益太集中在少数几天。
 
   - id: gtja_016
     label: 量价排名相关性（GTJA16）

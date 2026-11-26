@@ -104,11 +104,22 @@ def permutation_importance(
         })
 
     if include_noise_control and cols:
+        from factorlab.portfolio.select import zscore
+
+        # ⚠️ 噪声列必须与因子列同尺度（都按组 z-score + 截尾）。
+        #    2026-11-26 修复：此前这里直接塞 N(0,1) 就交给 composite，
+        #    而 composite 找的是 ``<col>_z`` —— 会直接 KeyError，
+        #    也就是说这段对照一直是死代码，从未真正跑出过数。
+        #    修复前后的对照（GTJA191 第一批，base Sharpe -1.588）：
+        #      不标准化 -1.4432 ± 0.1014 / 按组标准化 -1.4364 ± 0.0955
+        #      → 均值差 0.007（0.07 个标准差），标准化只是把对照的抽样噪声压低 6%。
+        #    证据：research/2026-11_gtja191_first_batch/result/pi_noise_compare.csv
         sims = []
         for _ in range(n_perm):
             frame = panel.copy()
             # 用一个与任何因子无关的随机列替换最后一槽
             frame["__noise__"] = rng.standard_normal(len(frame))
+            frame = zscore(frame, ["__noise__"], by=by, clip=3.0)
             weights = dict(factor_z_cols)
             last = cols[-1]
             weights.pop(last)

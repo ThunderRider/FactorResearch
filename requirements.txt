@@ -1,5 +1,5 @@
 # 核心（跑通 factorlab / research 模板的最小集合）
-pandas>=2.0
+pandas>=2.2   # include_groups= 需要 2.2+
 numpy>=1.24
 pyarrow>=14.0
 PyYAML>=6.0

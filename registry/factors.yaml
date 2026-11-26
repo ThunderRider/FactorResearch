@@ -473,9 +473,151 @@ factors:
     status_changed: "2026-11-20"
     status_reason: "迁移（票池合格，因子未验证）"
 
+  - id: gtja_057
+    label: 9 日区间位置（GTJA57）
+    family: 价量
+    status: watch
+    direction: negative
+    definition: "EWMA((close - rolling_min(low,9)) / (rolling_max(high,9) - rolling_min(low,9)), alpha=1/3)，前一日全量日频后 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_057"
+    params: {window: 9, ewm_alpha: 0.3333, lag: 1}
+    pit_fields: [open, high, low, close, volume]
+    independent: true
+    notes: "GTJA191 第一批候选；测试价格区间位置是否补足 ret_20d。"
+    evidence:
+      pit_pool: min
+      mean_ic: -0.0277
+      t_newey_west: -5.271
+      n_days: 642
+      orth_retention: 0.728
+      net_delta_sharpe_pi: 0.191
+      portfolio_verdict: fail
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：因子层与正交化通过，但组合层失败，暂为 watch"
+
+  - id: gtja_001
+    label: 量价背离（GTJA1）
+    family: 量价
+    status: watch
+    direction: positive
+    definition: "-corr(rank(delta(volume,1)), rank((close-open)/open), 6)，前一日全量日频后 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_001"
+    params: {window: 6, lag: 1}
+    pit_fields: [open, high, low, close, volume]
+    independent: true
+    notes: "GTJA191 第一批候选；测试量价背离是否独立于 vol_ratio。"
+    evidence:
+      pit_pool: min
+      mean_ic: 0.0225
+      t_newey_west: 10.549
+      n_days: 642
+      orth_retention: 0.638
+      net_delta_sharpe_pi: 0.230
+      portfolio_verdict: fail
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：因子层与正交化通过，但组合层失败，暂为 watch"
+
+  - id: gtja_016
+    label: 量价排名相关性（GTJA16）
+    family: 量价
+    status: rejected
+    direction: positive
+    definition: "-max(corr(rank(volume), rank(vwap), 5), 5)，前一日全量日频后 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_016"
+    params: {window: 5, lag: 1}
+    pit_fields: [open, high, low, close, volume, total_turnover]
+    independent: false
+    reject_reason: "正交化后 IC 保留率 22.2%，属于现有量价/波动暴露，不是独立因子"
+    notes: "GTJA191 第一批候选；与 gtja_001 互为稳健性，不假定同时保留。"
+    evidence:
+      pit_pool: min
+      mean_ic: 0.0334
+      t_newey_west: 12.781
+      orth_retention: 0.222
+      reject_reason: "正交化后 IC 保留率 22.2%，属于现有量价/波动暴露，不是独立因子"
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：独立性不通过"
+
+  - id: gtja_049
+    label: 12 日下行价格压力占比（GTJA49）
+    family: 价量
+    status: rejected
+    direction: positive
+    definition: "12 日下行价格波动幅度 / (下行幅度 + 上行幅度)，前一日全量日频后 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_049"
+    params: {window: 12, lag: 1}
+    pit_fields: [open, high, low, close, volume]
+    independent: false
+    reject_reason: "正交化后 IC 保留率 57.3%，低于 60%，不足以确认为独立因子"
+    notes: "GTJA191 第一批候选；测试多空力量方向信息。"
+    evidence:
+      pit_pool: min
+      mean_ic: 0.0406
+      t_newey_west: 7.931
+      orth_retention: 0.573
+      reject_reason: "正交化后 IC 保留率 57.3%，低于 60%，不足以确认为独立因子"
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：独立性不通过"
+
+  - id: gtja_117
+    label: 时序排名复合（GTJA117）
+    family: 价量
+    status: rejected
+    direction: positive
+    definition: "ts_rank(volume,32) * (1 - ts_rank(close+high-low,16)) * (1 - ts_rank(ret,32))，前一日全量日频后 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_117"
+    params: {rank_windows: [16, 32, 32], lag: 1}
+    pit_fields: [open, high, low, close, volume]
+    independent: false
+    reject_reason: "因子层 IC 弱（NW t 1.70），置换重要性净信息 0.042 < 0.10"
+    notes: "GTJA191 第一批候选；先查与 vol_ratio/ret_20d 的冗余。"
+    evidence:
+      pit_pool: min
+      mean_ic: 0.0071
+      t_newey_west: 1.698
+      orth_retention: 1.008
+      net_delta_sharpe_pi: 0.042
+      reject_reason: "因子层 IC 弱（NW t 1.70），置换重要性净信息 0.042 < 0.10"
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：因子层/置换重要性不通过"
+
+  - id: gtja_015
+    label: 开盘缺口（GTJA15，仅诊断）
+    family: 日内结构
+    status: rejected
+    direction: negative
+    definition: "open / close.shift(1) - 1；T 日 10:00 即已知。"
+    formula_code: "research/2026-11_gtja191_first_batch/build_panel.py::gtja_015"
+    params: {lag: 1}
+    pit_fields: [open, c1500]
+    independent: false
+    reject_reason: "裸开盘缺口在旧项目已证伪为涨停污染源；本批仅作诊断，不进入打分"
+    notes: "只做诊断，不进入本批组合打分；旧项目裸 gap 已被证伪为涨停污染源。"
+    evidence:
+      reject_reason: "裸开盘缺口在旧项目已证伪为涨停污染源；本批仅作诊断，不进入打分"
+    source_run: "20261126-gtja191-first-batch"
+    status_changed: "2026-11-26"
+    status_reason: "第一批筛选：保留为诊断列，不作为候选因子"
+
   # ================================================================
   # E. 控制变量（不是选股因子）
   # ================================================================
+
+  - id: log_mktcap
+    label: log(市值)（T-1）
+    family: 规模代理
+    status: control
+    direction: none
+    definition: "log(mktcap.shift(1))"
+    pit_fields: [mktcap]
+    notes: "真市值控制变量；panel 中用于正交化。"
+    status_changed: "2026-11-26"
+    status_reason: "新增控制变量"
 
   - id: vol_20d
     label: 20 日波动率

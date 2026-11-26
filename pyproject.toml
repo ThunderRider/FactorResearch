@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "因子研究的最小可复用库（PIT / 评估 / 组合 / 审计）"
 requires-python = ">=3.10"
 dependencies = [
-    "pandas>=2.0",
+    "pandas>=2.2",   # include_groups= 需要 2.2+
     "numpy>=1.24",
     "pyarrow>=14.0",
     "PyYAML>=6.0",

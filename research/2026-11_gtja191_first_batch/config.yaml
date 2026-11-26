@@ -1,0 +1,76 @@
+# 本研究的参数（不含凭证；凭证走仓库根的 .env）
+# 改动任何一个值都算一次新试验 → 必须记进 registry/trials_log.csv
+
+meta:
+  run_id: "20261126-gtja191-first-batch"
+  owner: "codex"
+  started_at: "2026-11-26"
+
+# ---- 数据 ----
+data:
+  panel: "research/2026-11_gtja191_first_batch/result/panel.parquet"
+  start: "2023-09-11"
+  end: "2026-05-13"
+  # 股票池（configs/universe.yaml 里定义的 key）
+  pools: [mac, min]
+  # 只做主板时设为 true（创业/科创的涨跌停是 20%，9.5% 阈值会误伤）
+  main_board_only: false
+
+# ---- 待检验的因子 ----
+factors:
+  - id: gtja_057
+    direction: -1
+    params: {window: 9}
+  - id: gtja_001
+    direction: 1
+    params: {window: 6}
+  - id: gtja_016
+    direction: 1
+    params: {window: 5}
+  - id: gtja_049
+    direction: 1
+    params: {window: 12}
+  - id: gtja_117
+    direction: 1
+    params: {rank_windows: [16, 32, 32]}
+
+# ---- 标签 ----
+labels:
+  primary: ret_1445_next_1115
+  decompose: [ret_tail, ret_overnight, ret_morning]
+
+# ---- 评估 ----
+eval:
+  min_names_per_day: 30
+  nw_lag: 20
+  n_quantiles: 10
+  orth_controls: [log_amt20, log_mktcap, vol_20d, ret_20d]
+  # 置换重要性
+  n_perm: 20
+  include_noise_control: true      # ⚠️ 不许关
+
+# ---- 组合 ----
+portfolio:
+  n_picks_per_pool: 20
+  budget: 0.48          # 两个池合计 96%；每个池各 48%
+  max_weight: 0.19
+  z_clip: 3.0
+  cost_one_way: 0.0010
+  cost_sensitivity: [0.0010, 0.0015, 0.0020]
+
+# ---- 审计 ----
+audit:
+  truncation_dates: ["2020-10-09", "2024-02-05", "2021-08-13"]
+  do_dsr: true
+  n_trials_for_dsr: null           # null = 自动从 registry/trials_log.csv 累计
+  do_pbo: false
+  split_date: "2025-07-01"
+  embargo_days: 120                # 必须 >= 最大特征窗（分位窗口 120 天 → 120）
+  fragility_k: [0, 1, 2, 3, 5, 8, 10, 20]
+
+# ---- 输出的期望结论（开题时写，写完再对比）----
+expectation:
+  nw_t_min: 3.0
+  ic_retention_min: 0.60
+  delta_sharpe_min: 0.10
+  per_unit_daily_min: 0.0020

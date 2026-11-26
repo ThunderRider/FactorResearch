@@ -604,6 +604,63 @@ factors:
     status_changed: "2026-11-26"
     status_reason: "第一批筛选：保留为诊断列，不作为候选因子"
 
+  - id: gtja_168
+    label: 异常缩量（日频量比）
+    family: 量价
+    status: candidate
+    direction: positive
+    definition: "-1 * volume / rolling_mean(volume, 20)，日线，再 shift(1)"
+    formula_code: "research/2026-11_gtja191_first_batch/build_extra.py::g168"
+    params: {window: 20, lag: 1}
+    pit_fields: [volume]
+    labels: [ret_1445_next_1115]
+    independent: true
+    notes: |
+      与 vol_ratio 同族但不同口径：vol_ratio 用 14:30 那根 bar（同时点分母，去掉日内季节性），
+      gtja_168 用 T−1 全天量。二者秩相关 −0.473，**未到 0.7 的马甲线**。
+      只过了门 3 / 门 4，门 5 / 门 6 未做。
+    evidence:
+      min_pool: {mean_ic: 0.0454, t_newey_west: 8.56, retention: 0.86, resid_t: 10.84}
+      mac_pool: {mean_ic: 0.0155, t_newey_west: 3.56, retention: 1.09, resid_t: 5.14}
+      correlation: {vol_ratio: -0.473, ret_20d: -0.301, vol_20d: 0.075, amihud_lag: -0.064}
+    source_run: "20261126-gtja191-batch2"
+    source_doc: "research/2026-11_gtja191_first_batch/conclusion.md"
+    retire_if:
+      - "连续 2 个季度 min 池 IC < 0.022"
+      - "正交后 IC 保留率 < 0.40"
+    status_changed: "2026-11-26"
+    status_reason: "第二批筛选：门 3 + 门 4 通过（两池），门 5/6 未做"
+
+  - id: gtja_102
+    label: 量增/量减不对称度
+    family: 量价
+    status: candidate
+    direction: negative
+    definition: |
+      dv = volume - volume.shift(1)
+      SMA(max(dv, 0), 6, 1) / SMA(|dv|, 6, 1) * 100，再 shift(1)
+      （SMA(X,N,M) = EMA(alpha=M/N)）
+    formula_code: "research/2026-11_gtja191_first_batch/build_extra.py::g102"
+    params: {window: 6, lag: 1}
+    pit_fields: [volume]
+    labels: [ret_1445_next_1115]
+    independent: true
+    notes: |
+      度量"放量 vs 缩量"的方向不对称：值高 = 近期增量集中在放量那几天。
+      与 vol_ratio 的秩相关 0.396，未到马甲线；正交后保留 93% / 109%。
+      只过了门 3 / 门 4，门 5 / 门 6 未做。
+    evidence:
+      min_pool: {mean_ic: -0.0386, t_newey_west: -7.72, retention: 0.93, resid_t: -10.30}
+      mac_pool: {mean_ic: -0.0137, t_newey_west: -3.21, retention: 1.09, resid_t: -4.33}
+      correlation: {vol_ratio: 0.396, ret_20d: 0.194, vol_20d: -0.082, amihud_lag: 0.051}
+    source_run: "20261126-gtja191-batch2"
+    source_doc: "research/2026-11_gtja191_first_batch/conclusion.md"
+    retire_if:
+      - "连续 2 个季度 min 池 IC 绝对值 < 0.019"
+      - "正交后 IC 保留率 < 0.40"
+    status_changed: "2026-11-26"
+    status_reason: "第二批筛选：门 3 + 门 4 通过（两池），门 5/6 未做"
+
   # ================================================================
   # E. 控制变量（不是选股因子）
   # ================================================================
